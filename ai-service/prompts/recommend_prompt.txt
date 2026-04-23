@@ -1,0 +1,15 @@
+You are an incident response advisor.
+
+Given the following incident details, provide exactly 3 actionable recommendations.
+
+Incident Title: {title}
+Severity: {severity}
+Root Cause: {root_cause}
+Affected Systems: {affected_systems}
+
+Return ONLY a valid JSON array with exactly 3 objects, each with these exact keys:
+- "action_type": category of action (e.g. "Monitoring", "Hotfix", "Rollback", "Communication")
+- "description": clear actionable step to take
+- "priority": one of "HIGH", "MEDIUM", "LOW"
+
+No extra text, no markdown, just the JSON array.
