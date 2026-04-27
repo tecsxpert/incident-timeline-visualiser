@@ -1,6 +1,7 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime, timezone
 from services.groq_client import call_groq
+import json
 import os
 
 describe_bp = Blueprint('describe', __name__)
@@ -33,11 +34,15 @@ def describe():
         generated_at=generated_at
     )
 
-    result = call_groq(prompt)
+    raw = call_groq(prompt)
 
-    if result is None:
+    if raw is None:
         return jsonify({"error": "AI service unavailable"}), 503
 
-    result['generated_at'] = generated_at
+    try:                                  # ← ADD this block
+        result = json.loads(raw)
+    except json.JSONDecodeError:
+        return jsonify({"error": "AI returned invalid response"}), 500
 
+    result['generated_at'] = generated_at
     return jsonify(result), 200

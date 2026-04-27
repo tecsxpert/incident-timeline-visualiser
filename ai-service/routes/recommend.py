@@ -1,5 +1,6 @@
 from flask import Blueprint, request, jsonify
 from services.groq_client import call_groq
+import json
 import os
 
 recommend_bp = Blueprint('recommend', __name__)
@@ -27,10 +28,15 @@ def recommend():
         root_cause=data.get('root_cause', 'Not provided')
     )
 
-    result = call_groq(prompt)
+    raw = call_groq(prompt)
 
-    if result is None:
+    if raw is None:
         return jsonify({"error": "AI service unavailable"}), 503
+
+    try:                                  # ← ADD this block
+        result = json.loads(raw)
+    except json.JSONDecodeError:
+        return jsonify({"error": "AI returned invalid response"}), 500
 
     if not isinstance(result, list):
         return jsonify({"error": "Unexpected AI response format"}), 500

@@ -17,4 +17,3 @@ Respond ONLY with a valid JSON object in this exact format:
   "generated_at": "{generated_at}"
 }}
 
-Do not include any text outside the JSON object.

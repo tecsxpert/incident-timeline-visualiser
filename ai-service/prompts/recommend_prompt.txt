@@ -12,4 +12,3 @@ Return ONLY a valid JSON array with exactly 3 objects, each with these exact key
 - "description": clear actionable step to take
 - "priority": one of "HIGH", "MEDIUM", "LOW"
 
-No extra text, no markdown, just the JSON array.
