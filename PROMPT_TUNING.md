@@ -54,7 +54,7 @@ Response:Deep learning is a way computers learn from examples. For example, a co
 Score: 8/10  
 Reason: good and clear.
 
-## Test 9
+## Test 10
 Input: explain API in simple terms
 Response:PI is like a messenger. 
 Score: 6/10  
