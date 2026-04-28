@@ -6,7 +6,7 @@ from groq import Groq
 
 logger = logging.getLogger(__name__)
 
-def call_groq(prompt: str, retries: int = 3) -> str | None:  # ← return str, not dict
+def call_groq(prompt: str, retries: int = 3) -> str | None:  
     client = Groq(api_key=os.getenv("GROQ_API_KEY"))
 
     for attempt in range(retries):

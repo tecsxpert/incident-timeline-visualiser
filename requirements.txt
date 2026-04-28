@@ -3,3 +3,4 @@ flask-limiter==4.1.1
 groq==1.1.1
 requests==2.31.0
 python-dotenv==1.0.0
+redis==5.0.4
