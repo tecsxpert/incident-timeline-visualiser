@@ -1,7 +1,7 @@
 from flask import Flask, request, jsonify
+from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
-from flask_cors import CORS
 from dotenv import load_dotenv
 import os
 
@@ -13,29 +13,42 @@ from services.prompt_guard import is_prompt_injection
 load_dotenv()
 
 app = Flask(__name__)
-CORS(app)
 
-# Rate limiter
-limiter = Limiter(
-    key_func=get_remote_address,
-    app=app,
-    default_limits=["30 per minute"]
-)
+# ✅ Restrict CORS (fix ZAP issue)
+CORS(app, resources={r"/ask_ai": {"origins": "http://localhost"}})
 
-# Initialize Groq client
+# ✅ Rate limiting
+limiter = Limiter(get_remote_address, app=app, default_limits=["10 per minute"])
+
+# ✅ Initialize AI client
 groq_client = GroqClient()
 
+# ✅ SECURITY HEADERS (ZAP FIX)
+@app.after_request
+def set_security_headers(response):
+    response.headers["Content-Security-Policy"] = "default-src 'self'"
+    response.headers["X-Frame-Options"] = "DENY"
+    response.headers["X-Content-Type-Options"] = "nosniff"
+    response.headers["X-XSS-Protection"] = "1; mode=block"
+    response.headers["Referrer-Policy"] = "no-referrer"
+    response.headers["Server"] = "SecureServer"
+    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; object-src 'none'"
+    return response
 
-# ✅ Home route
+# HOME ROUTE 
 @app.route("/")
 def home():
-    return "Server is running"
+    return "AI Service is running"
 
+@app.route("/health")
+def health():
+    return jsonify({"status": "OK"})
 
-# ✅ AI Endpoint
+# MAIN API
 @app.route("/ask_ai", methods=["POST"])
+@limiter.limit("5 per minute")
 def ask_ai():
-    data = request.get_json()
+    data = request.get_json(silent=True)
 
     # ❌ Empty input check
     if not data or "prompt" not in data or not data["prompt"].strip():
@@ -43,14 +56,14 @@ def ask_ai():
 
     user_input = data["prompt"]
 
-    # ✅ Step 1: Sanitize input
+    # ✅ Sanitize input
     clean_input = sanitize_input(user_input)
 
-    # ❌ Step 2: Prompt injection detection
+    # 🚨 Prompt injection detection
     if is_prompt_injection(clean_input):
         return jsonify({"error": "Invalid input detected"}), 403
 
-    # 🔥 Step 3: Prompt tuning (Day 6 improved)
+    # 🔥 PROMPT TUNING (Day 6 improvement)
     final_prompt = f"""
 You are a helpful AI assistant.
 
@@ -65,16 +78,15 @@ Question: {clean_input}
 """
 
     try:
-        # ✅ Step 4: Call AI
         response = groq_client.generate_response(final_prompt)
-
         return jsonify({"response": response})
 
     except Exception as e:
-        print("Error:", str(e))
         return jsonify({"error": "AI service failed"}), 500
 
 
-# Run server
+# ==============================
+# RUN SERVER
+# ==============================
 if __name__ == "__main__":
     app.run(debug=True)
