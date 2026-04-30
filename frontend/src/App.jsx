@@ -1,9 +1,50 @@
+import { useState } from "react";
 import Home from "./pages/Home";
+import IncidentForm from "./pages/IncidentForm";
 
 function App() {
+  const [currentPage, setCurrentPage] = useState("home");
+  const [editId, setEditId] = useState(null);
+
+  const navigateTo = (page, id = null) => {
+    setCurrentPage(page);
+    setEditId(id);
+  };
+
   return (
     <div className="min-h-screen bg-gray-100">
-      <Home />
+      {/* Navbar */}
+      <nav className="bg-blue-800 text-white px-6 py-4 flex justify-between items-center">
+        <h1 className="text-xl font-bold">Incident Timeline Visualiser</h1>
+        <div className="space-x-4">
+          <button
+            onClick={() => navigateTo("home")}
+            className="hover:underline"
+          >
+            Home
+          </button>
+          <button
+            onClick={() => navigateTo("create")}
+            className="bg-white text-blue-800 px-4 py-1 rounded font-medium hover:bg-gray-100"
+          >
+            + New Incident
+          </button>
+        </div>
+      </nav>
+
+      {/* Pages */}
+      {currentPage === "home" && (
+        <Home onEdit={(id) => navigateTo("edit", id)} />
+      )}
+      {currentPage === "create" && (
+        <IncidentForm onSuccess={() => navigateTo("home")} />
+      )}
+      {currentPage === "edit" && (
+        <IncidentForm
+          incidentId={editId}
+          onSuccess={() => navigateTo("home")}
+        />
+      )}
     </div>
   );
 }
