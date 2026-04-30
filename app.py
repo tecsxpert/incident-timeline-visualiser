@@ -40,11 +40,15 @@ def set_security_headers(response):
 def home():
     return "AI Service is running"
 
+@app.route("/health")
+def health():
+    return jsonify({"status": "OK"})
+
 # MAIN API
 @app.route("/ask_ai", methods=["POST"])
 @limiter.limit("5 per minute")
 def ask_ai():
-    data = request.get_json()
+    data = request.get_json(silent=True)
 
     # ❌ Empty input check
     if not data or "prompt" not in data or not data["prompt"].strip():
