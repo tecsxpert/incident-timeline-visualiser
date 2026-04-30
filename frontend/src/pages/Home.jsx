@@ -1,22 +1,34 @@
 import { useEffect, useState } from "react";
 import API from "../services/api";
 
-export default function Home() {
+export default function Home({ onEdit }) {
   const [incidents, setIncidents] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
+  const [page, setPage] = useState(0);
+  const [totalPages, setTotalPages] = useState(0);
 
-  useEffect(() => {
-    API.get("/api/incidents/all")
+  const fetchIncidents = (pageNum = 0) => {
+    setLoading(true);
+    API.get(`/api/incidents/all?page=${pageNum}&size=10`)
       .then((res) => {
-        setIncidents(res.data.content || res.data);
+        if (res.data.content) {
+          setIncidents(res.data.content);
+          setTotalPages(res.data.totalPages);
+        } else {
+          setIncidents(res.data);
+        }
         setLoading(false);
       })
       .catch(() => {
         setError("Failed to load incidents.");
         setLoading(false);
       });
-  }, []);
+  };
+
+  useEffect(() => {
+    fetchIncidents(page);
+  }, [page]);
 
   if (loading) {
     return (
@@ -37,7 +49,7 @@ export default function Home() {
   return (
     <div className="p-6">
       <h1 className="text-2xl font-bold text-blue-800 mb-6">
-        Incident Timeline Visualiser
+        All Incidents
       </h1>
 
       {incidents.length === 0 ? (
@@ -48,55 +60,89 @@ export default function Home() {
           </p>
         </div>
       ) : (
-        <div className="overflow-x-auto">
-          <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow">
-            <thead className="bg-blue-800 text-white">
-              <tr>
-                <th className="px-4 py-3 text-left">ID</th>
-                <th className="px-4 py-3 text-left">Title</th>
-                <th className="px-4 py-3 text-left">Type</th>
-                <th className="px-4 py-3 text-left">Severity</th>
-                <th className="px-4 py-3 text-left">Status</th>
-                <th className="px-4 py-3 text-left">Reported By</th>
-                <th className="px-4 py-3 text-left">Date</th>
-              </tr>
-            </thead>
-            <tbody>
-              {incidents.map((incident, index) => (
-                <tr
-                  key={incident.id}
-                  className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
-                >
-                  <td className="px-4 py-3">{incident.id}</td>
-                  <td className="px-4 py-3">{incident.title}</td>
-                  <td className="px-4 py-3">{incident.incidentType}</td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded text-sm font-medium
-                      ${incident.severity === 'CRITICAL' ? 'bg-red-100 text-red-800' :
-                        incident.severity === 'HIGH' ? 'bg-orange-100 text-orange-800' :
-                        incident.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
-                        'bg-green-100 text-green-800'}`}>
-                      {incident.severity}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">
-                    <span className={`px-2 py-1 rounded text-sm font-medium
-                      ${incident.status === 'OPEN' ? 'bg-blue-100 text-blue-800' :
-                        incident.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' :
-                        incident.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
-                        'bg-gray-100 text-gray-800'}`}>
-                      {incident.status}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3">{incident.reportedBy}</td>
-                  <td className="px-4 py-3">
-                    {new Date(incident.incidentDate).toLocaleDateString()}
-                  </td>
+        <>
+          <div className="overflow-x-auto">
+            <table className="min-w-full bg-white border border-gray-200 rounded-lg shadow">
+              <thead className="bg-blue-800 text-white">
+                <tr>
+                  <th className="px-4 py-3 text-left">ID</th>
+                  <th className="px-4 py-3 text-left">Title</th>
+                  <th className="px-4 py-3 text-left">Type</th>
+                  <th className="px-4 py-3 text-left">Severity</th>
+                  <th className="px-4 py-3 text-left">Status</th>
+                  <th className="px-4 py-3 text-left">Reported By</th>
+                  <th className="px-4 py-3 text-left">Date</th>
+                  <th className="px-4 py-3 text-left">Actions</th>
                 </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
+              </thead>
+              <tbody>
+                {incidents.map((incident, index) => (
+                  <tr
+                    key={incident.id}
+                    className={index % 2 === 0 ? "bg-white" : "bg-gray-50"}
+                  >
+                    <td className="px-4 py-3">{incident.id}</td>
+                    <td className="px-4 py-3">{incident.title}</td>
+                    <td className="px-4 py-3">{incident.incidentType}</td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-sm font-medium
+                        ${incident.severity === 'CRITICAL' ? 'bg-red-100 text-red-800' :
+                          incident.severity === 'HIGH' ? 'bg-orange-100 text-orange-800' :
+                          incident.severity === 'MEDIUM' ? 'bg-yellow-100 text-yellow-800' :
+                          'bg-green-100 text-green-800'}`}>
+                        {incident.severity}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className={`px-2 py-1 rounded text-sm font-medium
+                        ${incident.status === 'OPEN' ? 'bg-blue-100 text-blue-800' :
+                          incident.status === 'IN_PROGRESS' ? 'bg-yellow-100 text-yellow-800' :
+                          incident.status === 'RESOLVED' ? 'bg-green-100 text-green-800' :
+                          'bg-gray-100 text-gray-800'}`}>
+                        {incident.status}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3">{incident.reportedBy}</td>
+                    <td className="px-4 py-3">
+                      {new Date(incident.incidentDate).toLocaleDateString()}
+                    </td>
+                    <td className="px-4 py-3">
+                      <button
+                        onClick={() => onEdit(incident.id)}
+                        className="bg-blue-600 text-white px-3 py-1 rounded text-sm hover:bg-blue-700"
+                      >
+                        Edit
+                      </button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {/* Pagination */}
+          {totalPages > 1 && (
+            <div className="flex justify-center items-center mt-6 space-x-4">
+              <button
+                onClick={() => setPage(page - 1)}
+                disabled={page === 0}
+                className="px-4 py-2 bg-blue-800 text-white rounded disabled:opacity-50 hover:bg-blue-700"
+              >
+                Previous
+              </button>
+              <span className="text-gray-600">
+                Page {page + 1} of {totalPages}
+              </span>
+              <button
+                onClick={() => setPage(page + 1)}
+                disabled={page === totalPages - 1}
+                className="px-4 py-2 bg-blue-800 text-white rounded disabled:opacity-50 hover:bg-blue-700"
+              >
+                Next
+              </button>
+            </div>
+          )}
+        </>
       )}
     </div>
   );
