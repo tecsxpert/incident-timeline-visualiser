@@ -6,6 +6,12 @@ import json, os, time
 
 recommend_bp = Blueprint('recommend', __name__)
 
+FALLBACK_RECOMMENDATIONS = [
+    {"action_type": "Communication", "description": "Notify stakeholders of the incident immediately.", "priority": "HIGH"},
+    {"action_type": "Monitoring", "description": "Increase monitoring on affected systems.", "priority": "HIGH"},
+    {"action_type": "Rollback", "description": "Assess if rollback to last stable state is possible.", "priority": "MEDIUM"}
+]
+
 @recommend_bp.route('/recommend', methods=['POST'])
 def recommend():
     data = request.get_json()
@@ -17,7 +23,6 @@ def recommend():
         if not data.get(field):
             return jsonify({"error": f"Missing required field: {field}"}), 400
 
-    # cache check ↓
     cached = cache_get("recommend", data)
     if cached:
         return jsonify({**cached, "cache_hit": True}), 200
@@ -34,18 +39,21 @@ def recommend():
 
     start = time.time()           
     raw = call_groq(prompt)
-    record_time((time.time() - start) * 1000)  
+    record_time((time.time() - start) * 1000)
 
+    # ↓ CHANGED: return fallback instead of 503
     if raw is None:
-        return jsonify({"error": "AI service unavailable"}), 503
+        return jsonify({"recommendations": FALLBACK_RECOMMENDATIONS, "is_fallback": True, "cache_hit": False}), 200
 
     try:
-        result = json.loads(raw)
+        result = json.loads(raw.strip().strip('```json').strip('```').strip())
     except json.JSONDecodeError:
-        return jsonify({"error": "AI returned invalid response"}), 500
+        # ↓ CHANGED: return fallback instead of 500
+        return jsonify({"recommendations": FALLBACK_RECOMMENDATIONS, "is_fallback": True, "cache_hit": False}), 200
 
     if not isinstance(result, list):
-        return jsonify({"error": "Unexpected AI response format"}), 500
+        # ↓ CHANGED: return fallback instead of 500
+        return jsonify({"recommendations": FALLBACK_RECOMMENDATIONS, "is_fallback": True, "cache_hit": False}), 200
 
-    cache_set("recommend", data, result)  # ← add
-    return jsonify({"recommendations": result, "cache_hit": False}), 200
+    cache_set("recommend", data, {"recommendations": result, "is_fallback": False})
+    return jsonify({"recommendations": result, "is_fallback": False, "cache_hit": False}), 200
