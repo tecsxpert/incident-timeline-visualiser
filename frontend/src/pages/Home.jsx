@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import API from "../services/api";
+import SearchBar from "../components/SearchBar";
 
 export default function Home({ onEdit, onView }) {
   const [incidents, setIncidents] = useState([]);
@@ -7,10 +8,22 @@ export default function Home({ onEdit, onView }) {
   const [error, setError] = useState(null);
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
+  const [searchTerm, setSearchTerm] = useState("");
+  const [statusFilter, setStatusFilter] = useState("");
+  const [fromDate, setFromDate] = useState("");
+  const [toDate, setToDate] = useState("");
 
   const fetchIncidents = (pageNum = 0) => {
     setLoading(true);
-    API.get(`/api/incidents/all?page=${pageNum}&size=10`)
+
+    let url = `/api/incidents/all?page=${pageNum}&size=10`;
+
+    if (searchTerm) url = `/api/incidents/search?q=${searchTerm}&page=${pageNum}&size=10`;
+    if (statusFilter) url += `&status=${statusFilter}`;
+    if (fromDate) url += `&from=${fromDate}`;
+    if (toDate) url += `&to=${toDate}`;
+
+    API.get(url)
       .then((res) => {
         if (res.data.content) {
           setIncidents(res.data.content);
@@ -28,7 +41,7 @@ export default function Home({ onEdit, onView }) {
 
   useEffect(() => {
     fetchIncidents(page);
-  }, [page]);
+  }, [page, searchTerm, statusFilter, fromDate, toDate]);
 
   if (loading) {
     return (
@@ -40,8 +53,18 @@ export default function Home({ onEdit, onView }) {
 
   if (error) {
     return (
-      <div className="flex justify-center items-center h-screen">
-        <p className="text-red-500 text-lg">{error}</p>
+      <div className="p-6">
+        <h1 className="text-2xl font-bold text-blue-800 mb-6">
+          All Incidents
+        </h1>
+        <SearchBar
+          onSearch={(term) => { setSearchTerm(term); setPage(0); }}
+          onStatusFilter={(status) => { setStatusFilter(status); setPage(0); }}
+          onDateFilter={(from, to) => { setFromDate(from); setToDate(to); setPage(0); }}
+        />
+        <div className="text-center py-20">
+          <p className="text-red-500 text-lg">{error}</p>
+        </div>
       </div>
     );
   }
@@ -51,6 +74,13 @@ export default function Home({ onEdit, onView }) {
       <h1 className="text-2xl font-bold text-blue-800 mb-6">
         All Incidents
       </h1>
+
+      {/* Search Bar */}
+      <SearchBar
+        onSearch={(term) => { setSearchTerm(term); setPage(0); }}
+        onStatusFilter={(status) => { setStatusFilter(status); setPage(0); }}
+        onDateFilter={(from, to) => { setFromDate(from); setToDate(to); setPage(0); }}
+      />
 
       {incidents.length === 0 ? (
         <div className="text-center py-20">
