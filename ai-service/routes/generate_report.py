@@ -2,6 +2,7 @@ import json, os, time
 from datetime import datetime, timezone
 from flask import Blueprint, jsonify, request
 from services.groq_client import call_groq
+from services.input_sanitizer import sanitize_fields
 from routes.health import record_time
 
 generate_report_bp = Blueprint("generate_report", __name__)
@@ -13,7 +14,7 @@ def fallback_response(incident_data):
     return {
         "title": "Incident Report (Fallback)",
         "summary": "AI service is temporarily unavailable. Please review manually.",
-        "overview": f"Incident data submitted: {incident_data[:300]}",
+        "overview": f"Incident data: {incident_data[:300]}",
         "key_items": ["AI generation failed — manual review required"],
         "recommendations": ["Retry once the AI service recovers"],
         "is_fallback": True,
@@ -27,6 +28,10 @@ def generate_report():
     if not data:
         return jsonify({"error": "Request body must be valid JSON"}), 400
 
+    data, err = sanitize_fields(data, ['description', 'incident_id', 'title', 'severity', 'affected_systems', 'start_time', 'end_time'])
+    if err:
+        return jsonify({"error": err}), 400
+
     description = data.get("description", "").strip()
     if not description:
         return jsonify({"error": "'description' is required"}), 400
@@ -34,7 +39,7 @@ def generate_report():
         return jsonify({"error": "'description' must not exceed 5000 characters"}), 400
 
     parts = [f"Description: {description}"]
-    for key, label in [("incident_id", "Incident ID"), ("title", "Incident Title"),
+    for key, label in [("incident_id", "Incident ID"), ("title", "Title"),
                         ("severity", "Severity"), ("affected_systems", "Affected Systems"),
                         ("start_time", "Start Time"), ("end_time", "End Time")]:
         if data.get(key, "").strip():

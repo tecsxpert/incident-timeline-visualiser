@@ -1,25 +1,30 @@
 from flask import Blueprint, request, jsonify
 from services.groq_client import call_groq
-from services.ai_cache import cache_get, cache_set  
-from routes.health import record_time               
-import json, os, time                               
+from services.ai_cache import cache_get, cache_set
+from services.input_sanitizer import sanitize_fields
+from routes.health import record_time
+import json, os, time
 
 recommend_bp = Blueprint('recommend', __name__)
 
-FALLBACK_RECOMMENDATIONS = [
-    {"action_type": "Communication", "description": "Notify stakeholders of the incident immediately.", "priority": "HIGH"},
+FALLBACK = [
+    {"action_type": "Communication", "description": "Notify stakeholders immediately.", "priority": "HIGH"},
     {"action_type": "Monitoring", "description": "Increase monitoring on affected systems.", "priority": "HIGH"},
-    {"action_type": "Rollback", "description": "Assess if rollback to last stable state is possible.", "priority": "MEDIUM"}
+    {"action_type": "Rollback", "description": "Assess if rollback is possible.", "priority": "MEDIUM"}
 ]
+
 
 @recommend_bp.route('/recommend', methods=['POST'])
 def recommend():
-    data = request.get_json()
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Request body is required"}), 400
 
-    required_fields = ['title', 'severity', 'affected_systems']
-    for field in required_fields:
+    data, err = sanitize_fields(data, ['title', 'severity', 'affected_systems', 'root_cause'])
+    if err:
+        return jsonify({"error": err}), 400
+
+    for field in ['title', 'severity', 'affected_systems']:
         if not data.get(field):
             return jsonify({"error": f"Missing required field: {field}"}), 400
 
@@ -37,23 +42,20 @@ def recommend():
         root_cause=data.get('root_cause', 'Not provided')
     )
 
-    start = time.time()           
+    start = time.time()
     raw = call_groq(prompt)
     record_time((time.time() - start) * 1000)
 
-    # ↓ CHANGED: return fallback instead of 503
     if raw is None:
-        return jsonify({"recommendations": FALLBACK_RECOMMENDATIONS, "is_fallback": True, "cache_hit": False}), 200
+        return jsonify({"recommendations": FALLBACK, "is_fallback": True, "cache_hit": False}), 200
 
     try:
         result = json.loads(raw.strip().strip('```json').strip('```').strip())
     except json.JSONDecodeError:
-        # ↓ CHANGED: return fallback instead of 500
-        return jsonify({"recommendations": FALLBACK_RECOMMENDATIONS, "is_fallback": True, "cache_hit": False}), 200
+        return jsonify({"recommendations": FALLBACK, "is_fallback": True, "cache_hit": False}), 200
 
     if not isinstance(result, list):
-        # ↓ CHANGED: return fallback instead of 500
-        return jsonify({"recommendations": FALLBACK_RECOMMENDATIONS, "is_fallback": True, "cache_hit": False}), 200
+        return jsonify({"recommendations": FALLBACK, "is_fallback": True, "cache_hit": False}), 200
 
     cache_set("recommend", data, {"recommendations": result, "is_fallback": False})
     return jsonify({"recommendations": result, "is_fallback": False, "cache_hit": False}), 200

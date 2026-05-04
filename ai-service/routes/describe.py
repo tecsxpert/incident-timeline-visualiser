@@ -1,20 +1,26 @@
 from flask import Blueprint, request, jsonify
 from datetime import datetime, timezone
 from services.groq_client import call_groq
-from services.ai_cache import cache_get, cache_set  
-from routes.health import record_time               
-import json, os, time                               
+from services.ai_cache import cache_get, cache_set
+from services.input_sanitizer import sanitize_fields
+from routes.health import record_time
+import json, os, time
 
 describe_bp = Blueprint('describe', __name__)
 
+
 @describe_bp.route('/describe', methods=['POST'])
 def describe():
-    data = request.get_json()
+    data = request.get_json(silent=True)
     if not data:
         return jsonify({"error": "Request body is required"}), 400
 
-    required_fields = ['title', 'severity', 'description', 'affected_systems']
-    for field in required_fields:
+    # Sanitize inputs
+    data, err = sanitize_fields(data, ['title', 'severity', 'description', 'affected_systems', 'start_time', 'end_time'])
+    if err:
+        return jsonify({"error": err}), 400
+
+    for field in ['title', 'severity', 'description', 'affected_systems']:
         if not data.get(field):
             return jsonify({"error": f"Missing required field: {field}"}), 400
 
@@ -35,17 +41,16 @@ def describe():
         generated_at=generated_at
     )
 
-    start = time.time()           
+    start = time.time()
     raw = call_groq(prompt)
     record_time((time.time() - start) * 1000)
 
-    # ↓ CHANGED: return fallback instead of 503
     if raw is None:
         return jsonify({
             "summary": "AI service unavailable. Please review manually.",
-            "root_cause": "Unable to determine — AI service unavailable.",
+            "root_cause": "Unable to determine.",
             "impact": "Unknown. Please assess manually.",
-            "timeline_highlights": ["AI analysis failed", "Manual review recommended"],
+            "timeline_highlights": ["Manual review recommended"],
             "generated_at": generated_at,
             "is_fallback": True,
             "cache_hit": False
@@ -54,12 +59,11 @@ def describe():
     try:
         result = json.loads(raw.strip().strip('```json').strip('```').strip())
     except json.JSONDecodeError:
-        # ↓ CHANGED: return fallback instead of 500
         return jsonify({
             "summary": "AI returned an invalid response.",
-            "root_cause": "Unable to determine — AI response was malformed.",
-            "impact": "Unknown. Please assess manually.",
-            "timeline_highlights": ["AI response parsing failed", "Manual review recommended"],
+            "root_cause": "Unable to determine.",
+            "impact": "Unknown.",
+            "timeline_highlights": ["Manual review recommended"],
             "generated_at": generated_at,
             "is_fallback": True,
             "cache_hit": False
@@ -68,5 +72,5 @@ def describe():
     result['generated_at'] = generated_at
     result['is_fallback'] = False
     result['cache_hit'] = False
-    cache_set("describe", data, result)  
+    cache_set("describe", data, result)
     return jsonify(result), 200
