@@ -68,11 +68,11 @@ def ask_ai():
 You are a helpful AI assistant.
 
 Instructions:
-- Answer in very simple language (for beginners)
-- Maximum 2 short lines
-- Be clear and direct
-- Do NOT use complex or technical words
-- If possible, give a small real-life example
+- Use very simple words
+- Answer in 2 short lines only
+- Always include a real-life example
+- Avoid technical jargon completely
+
 
 Question: {clean_input}
 """
