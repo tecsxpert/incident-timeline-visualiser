@@ -6,7 +6,7 @@ from routes.describe import describe_bp
 from routes.recommend import recommend_bp
 from routes.generate_report import generate_report_bp
 from routes.health import health_bp
-from services.embeddings_service import load_model, init_chroma
+from services.embeddings_services import load_model, init_chroma  # FIXED: was embeddings_service
 import os
 import logging
 
@@ -55,7 +55,7 @@ def internal_error(e):
     return jsonify({"error": "An internal error occurred."}), 500
 
 
-# Pre-load model and ChromaDB at startup (Day 11 task)
+# Pre-load model and ChromaDB at startup
 with app.app_context():
     load_model()
     init_chroma()
