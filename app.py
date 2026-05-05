@@ -15,7 +15,7 @@ load_dotenv()
 app = Flask(__name__)
 
 # ✅ Restrict CORS (fix ZAP issue)
-CORS(app, resources={r"/ask_ai": {"origins": "http://localhost"}})
+CORS(app, resources={r"/ask_ai": {"origins": ["http://localhost", "http://localhost:5173", "http://127.0.0.1:5173"]}})
 
 # ✅ Rate limiting
 limiter = Limiter(get_remote_address, app=app, default_limits=["10 per minute"])
@@ -67,12 +67,11 @@ def ask_ai():
     final_prompt = f"""
 You are a helpful AI assistant.
 
-Instructions:
-- Use very simple words
-- Answer in 2 short lines only
-- Always include a real-life example
-- Avoid technical jargon completely
-
+STRICT RULES:
+- Answer in ONLY 2 sentences
+- Use simple words
+- Do not exceed 120 words
+- Give 1 example
 
 Question: {clean_input}
 """
