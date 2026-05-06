@@ -5,11 +5,15 @@ from dotenv import load_dotenv
 
 load_dotenv()
 
+BASE_DIR = os.path.dirname(__file__)
+PROMPTS_DIR = os.path.join(BASE_DIR, "prompts")
+
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 GROQ_URL = "https://api.groq.com/openai/v1/chat/completions"
 
 def load_prompt(title, severity, start_time, end_time, affected_systems, description):
-    with open("prompts/describe_prompt.txt", "r") as f:
+    prompt_path = os.path.join(PROMPTS_DIR, "describe_prompt.txt")
+    with open(prompt_path, "r", encoding="utf-8") as f:
         template = f.read()
     from datetime import datetime
     return template.format(
