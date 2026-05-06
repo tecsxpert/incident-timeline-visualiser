@@ -1,29 +1,32 @@
 from flask import Flask, request, jsonify
-from flask_cors import CORS
 from flask_limiter import Limiter
 from flask_limiter.util import get_remote_address
 from dotenv import load_dotenv
-import os
-
+import logging
+import time
 from services.groq_client import GroqClient
 from services.sanitizer import sanitize_input
 from services.prompt_guard import is_prompt_injection
 
+groq_client = GroqClient()
 # Load environment variables
 load_dotenv()
 
+# Create Flask app
 app = Flask(__name__)
 
-# ✅ Restrict CORS (fix ZAP issue)
-CORS(app, resources={r"/ask_ai": {"origins": ["http://localhost", "http://localhost:5173", "http://127.0.0.1:5173"]}})
+# Rate limiter
+limiter = Limiter(
+    get_remote_address,
+    app=app,
+    default_limits=["5 per minute"]
+)
 
-# ✅ Rate limiting
-limiter = Limiter(get_remote_address, app=app, default_limits=["10 per minute"])
+# Logging setup
+logging.basicConfig(level=logging.INFO)
 
-# ✅ Initialize AI client
-groq_client = GroqClient()
 
-# ✅ SECURITY HEADERS (ZAP FIX)
+# 🔐 Security Headers
 @app.after_request
 def set_security_headers(response):
     response.headers["Content-Security-Policy"] = "default-src 'self'"
@@ -32,60 +35,97 @@ def set_security_headers(response):
     response.headers["X-XSS-Protection"] = "1; mode=block"
     response.headers["Referrer-Policy"] = "no-referrer"
     response.headers["Server"] = "SecureServer"
-    response.headers["Content-Security-Policy"] = "default-src 'self'; script-src 'self'; object-src 'none'"
     return response
 
-# HOME ROUTE 
-@app.route("/")
+
+# 🏠 Home Route
+@app.route("/", methods=["GET"])
 def home():
-    return "AI Service is running"
+    return jsonify({
+        "message": "AI Backend Service Running"
+    })
 
-@app.route("/health")
+
+# ❤️ Health Endpoint
+@app.route("/health", methods=["GET"])
 def health():
-    return jsonify({"status": "OK"})
+    return jsonify({
+        "status": "healthy",
+        "service": "AI Backend Running"
+    })
 
-# MAIN API
+
+# 🤖 AI Endpoint
 @app.route("/ask_ai", methods=["POST"])
 @limiter.limit("5 per minute")
 def ask_ai():
-    data = request.get_json(silent=True)
 
-    # ❌ Empty input check
-    if not data or "prompt" not in data or not data["prompt"].strip():
-        return jsonify({"error": "Prompt is required"}), 400
+    data = request.get_json()
+
+    # Validate request
+    if not data or "prompt" not in data:
+        return jsonify({
+            "error": "Prompt is required"
+        }), 400
 
     user_input = data["prompt"]
+
+    # Empty input check
+    if not user_input.strip():
+        return jsonify({
+            "error": "Prompt cannot be empty"
+        }), 400
+
+    logging.info(f"User Input: {user_input}")
 
     # ✅ Sanitize input
     clean_input = sanitize_input(user_input)
 
-    # 🚨 Prompt injection detection
+    # 🚫 Prompt injection detection
     if is_prompt_injection(clean_input):
-        return jsonify({"error": "Invalid input detected"}), 403
+        logging.warning("Prompt injection attempt blocked")
 
-    # 🔥 PROMPT TUNING (Day 6 improvement)
+        return jsonify({
+            "error": "Invalid input detected"
+        }), 403
+
+    # 🔥 Prompt tuning
     final_prompt = f"""
 You are a helpful AI assistant.
 
-STRICT RULES:
-- Answer in ONLY 2 sentences
-- Use simple words
-- Do not exceed 120 words
-- Give 1 example
+Instructions:
+- Answer in very simple language
+- Keep response short and clear
+- Maximum 3 lines
+- Avoid complex technical words
+- Give beginner-friendly examples if possible
 
-Question: {clean_input}
+Question:
+{clean_input}
 """
 
     try:
+        # ⏱ Response timing
+        start = time.time()
+
         response = groq_client.generate_response(final_prompt)
-        return jsonify({"response": response})
+
+        end = time.time()
+
+        logging.info(f"Response generated in {end - start:.2f} seconds")
+
+        return jsonify({
+            "response": response
+        })
 
     except Exception as e:
-        return jsonify({"error": "AI service failed"}), 500
+        logging.error(f"Error: {str(e)}")
+
+        return jsonify({
+            "error": "Failed to generate response"
+        }), 500
 
 
-# ==============================
-# RUN SERVER
-# ==============================
+# ▶ Run app
 if __name__ == "__main__":
     app.run(debug=True)
