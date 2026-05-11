@@ -1,5 +1,6 @@
 def is_prompt_injection(text: str) -> bool:
     suspicious_patterns = [
+        "ignore all instructions",
         "ignore previous instructions",
         "act as system",
         "bypass",
