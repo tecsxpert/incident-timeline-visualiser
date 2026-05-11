@@ -1,22 +1,38 @@
 import hashlib
 import json
+import logging
 from services.cache_client import get_cache
 
-TTL = 15 * 60  # 15 minutes
+logger = logging.getLogger(__name__)
 
-def make_key(endpoint, payload):
-    raw = f"{endpoint}:{json.dumps(payload, sort_keys=True)}"
-    return "ai:" + hashlib.sha256(raw.encode()).hexdigest()
+CACHE_TTL = 900  # 15 minutes
 
-def cache_get(endpoint, payload):
+
+def _make_key(endpoint: str, data: dict) -> str:
+    raw = endpoint + json.dumps(data, sort_keys=True)
+    return hashlib.sha256(raw.encode()).hexdigest()
+
+
+def cache_get(endpoint: str, data: dict):
     try:
-        val = get_cache().get(make_key(endpoint, payload))
-        return json.loads(val) if val else None
-    except:
-        return None
+        client = get_cache()
+        if client is None:
+            return None
+        key = _make_key(endpoint, data)
+        value = client.get(key)
+        if value:
+            return json.loads(value)
+    except Exception as e:
+        logger.warning(f"Cache GET failed: {e}")
+    return None
 
-def cache_set(endpoint, payload, response):
+
+def cache_set(endpoint: str, data: dict, result: dict):
     try:
-        get_cache().setex(make_key(endpoint, payload), TTL, json.dumps(response))
-    except:
-        pass
+        client = get_cache()
+        if client is None:
+            return
+        key = _make_key(endpoint, data)
+        client.set(key, json.dumps(result), ex=CACHE_TTL)
+    except Exception as e:
+        logger.warning(f"Cache SET failed: {e}")

@@ -1,8 +1,3 @@
-"""
-Run this once to seed ChromaDB with 10 documents.
-    python seed_chromadb.py
-"""
-
 import os, sys, logging
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 

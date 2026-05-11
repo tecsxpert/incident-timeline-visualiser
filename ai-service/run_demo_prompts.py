@@ -1,10 +1,3 @@
-"""
-Run all 3 AI endpoints against 30 demo records.
-Make sure Flask is running first: python app.py
-
-    python run_demo_prompts.py
-"""
-
 import sys, time, requests
 
 BASE_URL = "http://localhost:5000"
